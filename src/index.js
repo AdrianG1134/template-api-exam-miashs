@@ -78,34 +78,32 @@ const getWeatherPredictions = async (cityId) => {
 
 // Route GET /cities/:cityId/infos
 fastify.get('/cities/:cityId/infos', async (request, reply) => {
-  // Ici, cityId est traité comme le nom de la ville
-  const { cityId } = request.params;
+  const { cityId } = request.params
   try {
-    // Utilisation de la fonction combinée pour récupérer les insights à partir du nom
-    const cityInfo = await getCityInfoByName(cityId);
+    const cityInfo = await getCityInfo(cityId)
     if (!cityInfo || !cityInfo.id) {
-      return reply.code(404).send({ error: 'Ville non trouvée' });
+      return reply.code(404).send({ error: 'Ville non trouvée' })
     }
     
-    const weatherPredictions = await getWeatherPredictions(cityInfo.id);
+    const weatherPredictions = await getWeatherPredictions(cityId)
     
+    // Transformation : on renvoie un tableau contenant un objet au format attendu
     const result = [
       {
         cityId: cityInfo.id,
         cityName: cityInfo.name,
         predictions: weatherPredictions
       }
-    ];
+    ]
     
-    reply.send(result);
+    reply.send(result)
   } catch (err) {
     if (err.message.includes('Aucun résultat')) {
-      return reply.code(404).send({ error: 'Ville non trouvée' });
+      return reply.code(404).send({ error: 'Ville non trouvée' })
     }
-    reply.code(500).send({ error: 'Erreur serveur' });
+    reply.code(500).send({ error: 'Erreur serveur' })
   }
-});
-
+})
 
 // Route POST /cities/:cityId/recipes
 fastify.post('/cities/:cityId/recipes', async (request, reply) => {
