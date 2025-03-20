@@ -12,6 +12,10 @@ const headers = {
   Authorization: `Bearer ${apiKey}`,
 }
 
+// Variables globales pour le stockage des recettes
+const recipesStore = {}  // structure : { [cityId]: [ { id, content }, ... ] }
+let nextRecipeId = 1
+
 // Fonction pour récupérer les informations de la ville (insights)
 const getCityInfo = async (cityId) => { 
   const url = `${BASE_URL}/cities/${encodeURIComponent(cityId)}/insights?apiKey=${apiKey}`;
@@ -20,7 +24,6 @@ const getCityInfo = async (cityId) => {
     if (!response.ok) {
       throw new Error(`Erreur lors de la récupération de la ville : ${response.statusText}`);
     }
-    // On s'attend à ce que l'endpoint retourne directement l'objet au format attendu
     const json = await response.json();
     return json;
   } catch (err) {
@@ -38,7 +41,6 @@ const getWeatherPredictions = async (cityId) => {
       throw new Error(`Erreur lors de la récupération des prévisions météo : ${response.statusText}`);
     }
     const json = await response.json();
-    // Transformation au format attendu : tableau de 2 objets (today et tomorrow)
     return [
       { when: 'today', min: json.today.min, max: json.today.max },
       { when: 'tomorrow', min: json.tomorrow.min, max: json.tomorrow.max }
@@ -49,6 +51,7 @@ const getWeatherPredictions = async (cityId) => {
   }
 };
 
+// Route GET /cities/:cityId/infos
 fastify.get('/cities/:cityId/infos', async (request, reply) => {
   const { cityId } = request.params;
   try {
@@ -59,12 +62,11 @@ fastify.get('/cities/:cityId/infos', async (request, reply) => {
     
     const weatherPredictions = await getWeatherPredictions(cityId);
     
-    // Transformation pour correspondre au modèle attendu
     const result = [
       {
-        cityId: cityInfo.id,        // Extrait de votre City API
-        cityName: cityInfo.name,    // Extrait de votre City API
-        predictions: weatherPredictions  // Doit être un tableau d'objets { when, min, max }
+        cityId: cityInfo.id,
+        cityName: cityInfo.name,
+        predictions: weatherPredictions
       }
     ];
     
@@ -77,7 +79,44 @@ fastify.get('/cities/:cityId/infos', async (request, reply) => {
   }
 });
 
+// Route POST /cities/:cityId/recipes
+fastify.post('/cities/:cityId/recipes', async (request, reply) => {
+  const { cityId } = request.params;
+  const { content } = request.body || {};
 
+  // Vérifier l'existence de la ville
+  try {
+    await getCityInfo(cityId);
+  } catch (err) {
+    return reply.code(404).send({ error: 'Ville non trouvée' });
+  }
+
+  // Validation du contenu de la recette
+  if (typeof content !== 'string' || content.trim().length === 0) {
+    return reply.code(400).send({ error: 'Le contenu de la recette est requis' });
+  }
+  if (content.trim().length < 10) {
+    return reply.code(400).send({ error: 'Le contenu est trop court (minimum 10 caractères)' });
+  }
+  if (content.trim().length > 2000) {
+    return reply.code(400).send({ error: 'Le contenu est trop long (maximum 2000 caractères)' });
+  }
+
+  // Création et stockage de la recette
+  const recipe = {
+    id: nextRecipeId++,
+    content: content.trim(),
+  };
+
+  if (!recipesStore[cityId]) {
+    recipesStore[cityId] = [];
+  }
+  recipesStore[cityId].push(recipe);
+
+  reply.code(201).send(recipe);
+});
+
+// Démarrage du serveur Fastify
 fastify.listen(
   {
     port: process.env.PORT || 3000,
@@ -88,34 +127,6 @@ fastify.listen(
       fastify.log.error(err);
       process.exit(1);
     }
-    // Soumission de l'API pour revue
     submitForReview(fastify);
   }
 );
-
-export const recipes = async (request, reply) => {
-  try {
-    const { movieId, title } = request.body;
-    if (title) {
-      const movies = await searchMovies(title);
-      if (movies.length === 0) {
-        reply.status(404).send({ error: "Movie not found" });
-      }
-      const response = await updateMovieFromWatchlist(movies[0].id);
-      reply.send(response);
-    } else {
-      try {
-        const response = await updateMovieFromWatchlist(movieId);
-        reply.send(response);
-      } catch (error) {
-        if (error.response?.status === 404) {
-          reply.status(404).send({ error: "Movie not found" });
-        } else {
-          reply.status(500).send({ error: error.message });
-        }
-      }
-    }
-  } catch (error) {
-    reply.status(500).send({ error: error.message });
-  }
-};
