@@ -66,8 +66,8 @@ const getWeatherPredictions = async (cityId) => {
       throw new Error(`Erreur lors de la récupération des prévisions météo : ${response.statusText}`)
     }
     const json = await response.json()
-    // On suppose que la réponse est un tableau et qu'on souhaite retourner le tableau de prédictions
-    if (Array.isArray(json) && json.length > 0 && json[0].predictions) {
+    // On vérifie que la réponse est un tableau et qu'elle contient l'objet attendu avec la propriété "predictions"
+    if (Array.isArray(json) && json.length > 0 && Array.isArray(json[0].predictions)) {
       return json[0].predictions
     }
     throw new Error('Format de réponse météo inattendu')
@@ -76,6 +76,7 @@ const getWeatherPredictions = async (cityId) => {
     throw err
   }
 }
+
 
 // Route GET /cities/:cityId/infos
 fastify.get('/cities/:cityId/infos', async (request, reply) => {
