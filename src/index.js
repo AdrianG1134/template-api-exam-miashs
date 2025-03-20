@@ -142,38 +142,6 @@ fastify.post('/cities/:cityId/recipes', async (request, reply) => {
   reply.code(201).send(recipe)
 })
 
-// Route DELETE /cities/:cityId/recipes/:recipeId
-fastify.delete('/cities/:cityId/recipes/:recipeId', async (request, reply) => {
-  const { cityId, recipeId } = request.params;
-
-  try {
-    // Vérifier que la ville existe via l'API City
-    await getCityInfo(cityId);
-  } catch (err) {
-    // Si la ville n'existe pas
-    return reply.code(404).send({ error: 'Ville non trouvée' });
-  }
-
-  // Vérifier si des recettes existent pour cette ville
-  const recipes = recipesStore[cityId];
-  if (!recipes || recipes.length === 0) {
-    return reply.code(404).send({ error: 'Recette non trouvée' });
-  }
-
-  // Convertir recipeId en entier (si nécessaire) ou utiliser la comparaison de chaînes
-  const recipeIndex = recipes.findIndex(r => String(r.id) === recipeId);
-  if (recipeIndex === -1) {
-    return reply.code(404).send({ error: 'Recette non trouvée' });
-  }
-
-  // Supprimer la recette du tableau
-  recipes.splice(recipeIndex, 1);
-
-  // Répondre avec "no content" (204)
-  reply.code(204).send();
-});
-
-
 // Démarrage du serveur Fastify
 fastify.listen(
   {
