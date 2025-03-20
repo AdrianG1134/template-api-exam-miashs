@@ -66,10 +66,11 @@ const getWeatherPredictions = async (cityId) => {
       throw new Error(`Erreur lors de la récupération des prévisions météo : ${response.statusText}`)
     }
     const json = await response.json()
-    return [
-      { when: 'today', min: json.today.min, max: json.today.max },
-      { when: 'tomorrow', min: json.tomorrow.min, max: json.tomorrow.max }
-    ]
+    // On suppose que la réponse est un tableau et qu'on souhaite retourner le tableau de prédictions
+    if (Array.isArray(json) && json.length > 0 && json[0].predictions) {
+      return json[0].predictions
+    }
+    throw new Error('Format de réponse météo inattendu')
   } catch (err) {
     console.error(err.message)
     throw err
@@ -141,6 +142,37 @@ fastify.post('/cities/:cityId/recipes', async (request, reply) => {
 
   reply.code(201).send(recipe)
 })
+
+// Route DELETE /cities/:cityId/recipes/:recipeId
+fastify.delete('/cities/:cityId/recipes/:recipeId', async (request, reply) => {
+  const { cityId, recipeId } = request.params;
+
+  // Vérifier que la ville existe via l'API City
+  try {
+    await getCityInfo(cityId);
+  } catch (err) {
+    // Si l'API ne trouve pas la ville, renvoyer une erreur 404
+    return reply.code(404).send({ error: 'Ville non trouvée' });
+  }
+
+  // Vérifier que des recettes existent pour cette ville dans notre store en mémoire
+  const recipes = recipesStore[cityId];
+  if (!recipes || recipes.length === 0) {
+    return reply.code(404).send({ error: 'Recette non trouvée' });
+  }
+
+  // Chercher la recette avec l'ID fourni (on compare en tant que chaînes)
+  const index = recipes.findIndex(r => String(r.id) === recipeId);
+  if (index === -1) {
+    return reply.code(404).send({ error: 'Recette non trouvée' });
+  }
+
+  // Supprimer la recette du tableau
+  recipes.splice(index, 1);
+
+  // Répondre avec le code "no content" (204) sans corps de réponse
+  reply.code(204).send();
+});
 
 // Démarrage du serveur Fastify
 fastify.listen(
