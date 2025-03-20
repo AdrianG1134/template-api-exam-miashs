@@ -49,34 +49,34 @@ const getWeatherPredictions = async (cityId) => {
   }
 };
 
-// Route GET /cities/:cityId/infos
 fastify.get('/cities/:cityId/infos', async (request, reply) => {
   const { cityId } = request.params;
   try {
-    // Récupérer les informations de la ville
     const cityInfo = await getCityInfo(cityId);
-    if (!cityInfo || !cityInfo.coordinates) {
+    if (!cityInfo || !cityInfo.id) {
       return reply.code(404).send({ error: 'Ville non trouvée' });
     }
-    // Récupérer les prévisions météo
+    
     const weatherPredictions = await getWeatherPredictions(cityId);
-    // Assemblage de la réponse
-    const result = {
-      coordinates: cityInfo.coordinates,  // [latitude, longitude]
-      population: cityInfo.population,
-      knownFor: cityInfo.knownFor,          // Tableau de chaînes de caractères
-      weatherPredictions,                   // Prévisions météo transformées
-      recipes: cityInfo.recipes || []       // Tableau de recettes (ou tableau vide)
-    };
+    
+    // Transformation pour correspondre au modèle attendu
+    const result = [
+      {
+        cityId: cityInfo.id,        // Extrait de votre City API
+        cityName: cityInfo.name,    // Extrait de votre City API
+        predictions: weatherPredictions  // Doit être un tableau d'objets { when, min, max }
+      }
+    ];
+    
     reply.send(result);
   } catch (err) {
-    // En cas d'erreur liée à la récupération de la ville, renvoyer 404
-    if (err.message.includes('Erreur lors de la récupération de la ville')) {
+    if (err.message.includes('Aucun résultat')) {
       return reply.code(404).send({ error: 'Ville non trouvée' });
     }
     reply.code(500).send({ error: 'Erreur serveur' });
   }
 });
+
 
 fastify.listen(
   {
@@ -92,3 +92,30 @@ fastify.listen(
     submitForReview(fastify);
   }
 );
+
+export const recipes = async (request, reply) => {
+  try {
+    const { movieId, title } = request.body;
+    if (title) {
+      const movies = await searchMovies(title);
+      if (movies.length === 0) {
+        reply.status(404).send({ error: "Movie not found" });
+      }
+      const response = await updateMovieFromWatchlist(movies[0].id);
+      reply.send(response);
+    } else {
+      try {
+        const response = await updateMovieFromWatchlist(movieId);
+        reply.send(response);
+      } catch (error) {
+        if (error.response?.status === 404) {
+          reply.status(404).send({ error: "Movie not found" });
+        } else {
+          reply.status(500).send({ error: error.message });
+        }
+      }
+    }
+  } catch (error) {
+    reply.status(500).send({ error: error.message });
+  }
+};
